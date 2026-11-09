@@ -40,7 +40,7 @@ A piece of behavior with a public interface and a hidden implementation: a featu
 | `csharp` | `.cs` | type names | `using`s outside the solution's namespaces and `System`, quoted `.dll`/`.so`/`.dylib` |
 | `java` | `.java` | type names | `import`s outside the declared packages and `java.`/`javax.`/`jdk.`, `System.loadLibrary`, JNA `Native.load` |
 | `rust` | `.rs` | type names | paths through crates from the `Cargo.toml` dependency tables other than the workspace's own, `#[link(name)]` |
-| `cpp` | C and C++ sources and headers | type names (any case) and `#include`s that resolve to repository files | includes that resolve to no repository file and are not standard headers, `#pragma comment(lib)`, quoted `.dll`/`.so` |
+| `cpp` | C and C++ sources, headers and module units (`.cppm`, `.ixx`) | type names (any case), `#include`s that resolve to repository files, and C++20 module `import`s, partitions included | includes and imported modules not in the repository, except standard headers and `std`; `#pragma comment(lib)`, quoted `.dll`/`.so` |
 
 Any other language goes without a profile: give `suffixes`, and the scan checks coverage only.
 

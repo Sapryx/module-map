@@ -112,10 +112,11 @@ class Rust(Profile):
         return name in dependencies
 
 
-class IncludeResolver:
-    def __init__(self, repo_files, prefix):
+class CppIndex:
+    def __init__(self, repo_files, prefix, modules):
         self.files = set(repo_files)
         self.prefix = prefix
+        self.modules = modules
         self.by_suffix = {}
         for path in repo_files:
             parts = path.split("/")
@@ -137,34 +138,59 @@ class IncludeResolver:
 
 
 class Cpp(Profile):
-    suffixes = (".h", ".hh", ".hpp", ".hxx", ".inl", ".ixx", ".c", ".cc", ".cpp", ".cxx")
+    suffixes = (
+        ".h", ".hh", ".hpp", ".hxx", ".inl", ".c", ".cc", ".cpp", ".cxx", ".ixx", ".cppm", ".ccm", ".cxxm", ".mpp"
+    )
+    module_import_prefix = "import "
+    standard_modules = {"std", "std.compat"}
     definition_patterns = [
         re.compile(
             r"\b(?:class|struct|union|enum(?:\s+(?:class|struct))?)\s+(?:\[\[[^\]]*\]\]\s*)?"
-            r"(?:[A-Z][A-Z0-9_]*\s+)?([A-Za-z_]\w*)\s*(?:final\s*)?[:{]"
+            r"(?:[A-Z][A-Z0-9_]*\s+)?([A-Za-z_]\w*)\s*(?:final\s*)?(?::(?!:)|\{)"
         )
     ]
     identifier = re.compile(r"\b[A-Za-z_]\w*\b")
     native_patterns = [QUOTED_NATIVE, re.compile(r"#\s*pragma\s+comment\s*\(\s*lib\s*,\s*\"([^\"]+)\"")]
-    include = re.compile(r"^\s*#\s*include\s*[<\"]([^>\"]+)[>\"]", re.MULTILINE)
+    include = re.compile(r"^\s*(?:#\s*include|(?:export\s+)?import)\s*[<\"]([^>\"]+)[>\"]", re.MULTILINE)
+    module_declaration = re.compile(r"^\s*(export\s+)?module\s+([\w.]+)(:[\w.]+)?\s*;", re.MULTILINE)
+    module_import = re.compile(r"^\s*(?:export\s+)?import\s+([\w.]*)(:[\w.]+)?\s*;", re.MULTILINE)
 
     def context(self, texts, repo_files, prefix, root):
-        return IncludeResolver(repo_files, prefix)
+        modules = {}
+        for path, text in texts.items():
+            for exported, name, partition in self.module_declaration.findall(text):
+                if exported or partition:
+                    modules[name + partition] = path
+        return CppIndex(repo_files, prefix, modules)
 
     def imports(self, text):
-        return self.include.findall(text)
+        declarations = self.module_declaration.findall(text)
+        own = declarations[0][1] if declarations else ""
+        modules = [
+            self.module_import_prefix + (name or own) + partition
+            for name, partition in self.module_import.findall(text)
+        ]
+        return self.include.findall(text) + modules
 
-    def is_external(self, name, resolver):
+    def is_external(self, name, index):
+        if name.startswith(self.module_import_prefix):
+            module = name[len(self.module_import_prefix):]
+            return module not in self.standard_modules and module not in index.modules
         if name in C_HEADERS or ("/" not in name and "." not in name and name.islower()):
             return False
-        return not resolver.exists(name)
+        return not index.exists(name)
 
-    def file_links(self, path, text, resolver):
+    def file_links(self, path, text, index):
         targets = []
         for name in self.imports(text):
-            target = resolver.resolve(path, name)
-            if target is not None and target.startswith(resolver.prefix):
-                targets.append(target[len(resolver.prefix):])
+            if name.startswith(self.module_import_prefix):
+                target = index.modules.get(name[len(self.module_import_prefix):])
+                if target is not None:
+                    targets.append(target)
+                continue
+            target = index.resolve(path, name)
+            if target is not None and target.startswith(index.prefix):
+                targets.append(target[len(index.prefix):])
         return targets
 
 

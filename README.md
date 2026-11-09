@@ -19,7 +19,7 @@ A [Claude Code](https://claude.com/claude-code) skill that maps a codebase's beh
 | `csharp` | type names | `using` directives, native library names |
 | `java` | type names | `import` statements, `System.loadLibrary`, JNA |
 | `rust` | type names | crates from `Cargo.toml`, `#[link]` |
-| `cpp` | type names and `#include`s | non-repository includes, `#pragma comment(lib)`, native library names |
+| `cpp` | type names, `#include`s and C++20 module imports | non-repository includes and modules, `#pragma comment(lib)`, native library names |
 
 Other languages work without a profile: the scan checks coverage, and Claude finds dependencies by reading the code.
 
