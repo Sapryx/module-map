@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexora module map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one wide schematic (projects as stacked containers, modules as boxes, wires as dependencies), then a detail panel and reference lists */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --sunken: #e8ecf2;
+  --fg: #1b2230;
+  --muted: #5b6577;
+  --line: #c9d0db;
+  --wire: #8d97a8;
+  --cross: #c46a12;
+  --cycle: #c0392b;
+  --impl: #2f7d74;
+  --sel: #2457c5;
+  --proj-1: #eef1f8;
+  --proj-2: #f6f1f6;
+  --proj-3: #f1f4f1;
+  --proj-4: #f8f3ec;
+  --proj-5: #edf5f6;
+  --proj-6: #f6f5ea;
+  --font-display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --surface: #1b212b; --sunken: #232a36; --fg: #e3e8f0; --muted: #98a2b4;
+    --line: #364051; --wire: #6c778a; --cross: #e8913a; --cycle: #ec6b5d; --impl: #4fb3a6; --sel: #7ea6ff;
+    --proj-1: #171c26; --proj-2: #1d1720; --proj-3: #161d1a; --proj-4: #1f1a14; --proj-5: #141d1f;
+    --proj-6: #1d1c14; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --surface: #1b212b; --sunken: #232a36; --fg: #e3e8f0; --muted: #98a2b4;
+  --line: #364051; --wire: #6c778a; --cross: #e8913a; --cycle: #ec6b5d; --impl: #4fb3a6; --sel: #7ea6ff;
+  --proj-1: #171c26; --proj-2: #1d1720; --proj-3: #161d1a; --proj-4: #1f1a14; --proj-5: #141d1f;
+  --proj-6: #1d1c14; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.wrap { max-width: 1560px; margin: 0 auto; display: grid; gap: 28px; }
+header { display: grid; gap: 10px; max-width: 900px; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 2rem; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: 1rem; margin: 0; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 70ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); }
+.stats b { color: var(--fg); font-weight: 500; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.9rem; color: var(--muted); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { overflow: visible; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; user-select: none; }
+.toggle input { accent-color: var(--sel); width: 16px; height: 16px; }
+.diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.diagram svg { display: block; width: 100%; height: auto; }
+.hint { font-size: 0.85rem; color: var(--muted); }
+.mod rect.box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.mod { cursor: pointer; outline: none; }
+.mod text { fill: var(--fg); }
+.mod .kind { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em; fill: var(--muted); }
+.mod .name { font-family: var(--font-display); font-weight: 600; font-size: 13px; }
+.mod .iface { font-family: var(--font-mono); font-size: 10px; fill: var(--muted); }
+.mod .pip { fill: var(--line); }
+.mod .pip.on { fill: var(--impl); }
+.mod:hover rect.box, .mod:focus-visible rect.box { stroke: var(--sel); stroke-width: 2; }
+.mod.selected rect.box { stroke: var(--sel); stroke-width: 2.6; }
+.dim .mod:not(.related) { opacity: 0.28; }
+.dim .edge:not(.related) { opacity: 0.08; }
+.edge path { fill: none; stroke: var(--wire); stroke-width: 1.3; }
+.edge.cross path { stroke: var(--cross); stroke-width: 1.6; }
+.edge.cycle path { stroke: var(--cycle); stroke-width: 1.8; }
+.edge.implements path { stroke: var(--impl); stroke-dasharray: 6 4; stroke-width: 1.6; }
+.edge.listens path { stroke-dasharray: 2 3; }
+.edge.wiring path { stroke: var(--muted); stroke-dasharray: 1 4; stroke-width: 1.2; }
+.edge.external path { stroke: var(--muted); stroke-width: 1; opacity: 0.4; }
+.edge.external.related path { opacity: 1; stroke-width: 1.8; }
+.edge.related path { stroke-width: 2.4; }
+.mod.ext rect.box { fill: var(--sunken); stroke-dasharray: 4 3; }
+.mod .sub { font-family: var(--font-mono); font-size: 9.5px; fill: var(--muted); }
+.proj rect { stroke: var(--line); stroke-width: 1.2; }
+.proj .title { font-family: var(--font-display); font-weight: 700; font-size: 15px; fill: var(--fg); }
+.proj .sub { font-family: var(--font-mono); font-size: 10.5px; fill: var(--muted); }
+.lane { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em; fill: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px; display: grid; gap: 14px; }
+.panel .meta { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+.panel dl { display: grid; grid-template-columns: minmax(120px, 170px) 1fr; gap: 8px 18px; margin: 0; }
+.panel dt { font-size: 0.85rem; color: var(--muted); }
+.panel dd { margin: 0; min-width: 0; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 0.85rem; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--sunken); color: var(--fg); cursor: pointer; font-family: var(--font-body); }
+.chip:hover, .chip:focus-visible { border-color: var(--sel); outline: none; }
+.chip.cross { border-color: var(--cross); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 28px; align-items: start; }
+.notes { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.notes li { display: grid; gap: 3px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.notes .tag { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.tag.bad { color: var(--cycle); } .tag.warn { color: var(--cross); } .tag.ok { color: var(--impl); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.portab { font-family: var(--font-mono); font-size: 0.8rem; white-space: nowrap; }
+.portab.high { color: var(--impl); } .portab.medium { color: var(--cross); } .portab.low { color: var(--cycle); }
+section { display: grid; gap: 14px; }
+@media (prefers-reduced-motion: no-preference) { .mod, .edge { transition: opacity .15s ease; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1 id="heading"></h1>
+    <p class="lede" id="lede"></p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="toolbar">
+    <div class="legend" aria-label="Legend">
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="var(--wire)" stroke-width="1.6"/></svg>uses</span>
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="var(--wire)" stroke-width="1.6" stroke-dasharray="2 3"/></svg>listens to events</span>
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="var(--impl)" stroke-width="1.6" stroke-dasharray="6 4"/></svg>implements its interface</span>
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="var(--cross)" stroke-width="2"/></svg>crosses a project</span>
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="var(--cycle)" stroke-width="2"/></svg>part of a cycle</span>
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="var(--muted)" stroke-width="1.2" opacity="0.7"/></svg>external library</span>
+      <span><svg width="30" height="8"><circle cx="4" cy="4" r="3.2" fill="var(--impl)"/><circle cx="13" cy="4" r="3.2" fill="var(--impl)"/><circle cx="22" cy="4" r="3.2" fill="var(--line)"/></svg>portability</span>
+    </div>
+    <label class="toggle"><input type="checkbox" id="externals" checked>Show external libraries</label>
+    <label class="toggle"><input type="checkbox" id="wiring">Show composition-root wiring</label>
+  </div>
+
+  <div class="diagram"><svg id="map" role="img" aria-label="Module dependency diagram"></svg></div>
+  <p class="hint">Hover a module to trace its wires; click it (or focus it and press Enter) to pin it and read the details below. <span id="notdrawn"></span></p>
+
+  <div class="panel" id="panel" aria-live="polite"></div>
+
+  <div class="cols">
+    <section>
+      <h2>Coupling hotspots</h2>
+      <ul class="notes" id="notes"></ul>
+    </section>
+    <section>
+      <h2>Project boundary crossings</h2>
+      <div class="tablewrap"><table id="crossings"><thead><tr><th>From</th><th>To</th><th>Through</th></tr></thead><tbody></tbody></table></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>All modules</h2>
+    <div class="tablewrap"><table id="all"><thead><tr><th>Module</th><th>Project</th><th>Public interface</th><th>Portability</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</div>
+
+<script>
+const DATA = {"title": "Nexora module map", "lede": "Every behavioral module in the solution: what it exposes, what it hides, and which modules it leans on. Modules sit inside the project that contains them, so every orange wire is a dependency that crosses a project boundary.", "commit": "fc824c1", "date": "2026-11-08", "source": {"root": "src", "profile": "csharp", "suffixes": [".cs", ".axaml"]}, "packageKind": "NuGet package", "notDrawn": "Logging through <code>Core.Logging<\/code> (and <code>Microsoft.Extensions.Logging.Abstractions<\/code> behind it) is used by nearly every module and is not drawn. The .NET base library is not drawn either.", "projects": [{"id": "Nexora", "title": "Nexora", "sub": "src/Nexora · Avalonia app, view models, platform adapters"}, {"id": "Nexora.Theme", "title": "Nexora.Theme", "sub": "src/Nexora.Theme · styles"}, {"id": "Core", "title": "Core", "sub": "src/Core · no UI dependencies"}], "rows": [{"id": "A"}, {"id": "B", "lane": "FEATURES (VIEW MODEL + VIEW)"}, {"id": "C", "lane": "UI KIT AND INFRASTRUCTURE"}, {"id": "D"}, {"id": "E", "lane": "DOMAIN SERVICES", "gapBefore": 80}, {"id": "F", "lane": "PLAYBACK AND STORAGE"}, {"id": "G", "lane": "MODEL AND UTILITIES"}], "shared": ["Nexora/ViewModels/ViewModelBase.cs"], "modules": [{"id": "mainwindow", "name": "Main window", "kind": "feature", "project": "Nexora", "ns": "Nexora.ViewModels, Nexora.Views", "col": 2.5, "row": "A", "portability": 1, "iface": "MainWindowVm.Initialize, ClosePopup", "impl": "MainWindowVm, MainWindow", "libs": "Avalonia, CommunityToolkit.Mvvm", "note": "Composes the search bar, playback bar, queue, track editor and cover viewer, and owns which popup is open.", "files": ["Nexora/ViewModels/MainWindowVm.cs", "Nexora/Views/MainWindow.axaml*"]}, {"id": "searchbar", "name": "Search bar", "kind": "feature", "project": "Nexora", "ns": "Nexora.ViewModels", "col": 0, "row": "B", "portability": 1, "iface": "SearchBarVm (query, results)", "impl": "SearchBarVm, SearchBar", "libs": "CommunityToolkit.Mvvm", "note": "Filters the global playlist with TrackSearchQuery and shows the matches as track rows.", "files": ["Nexora/ViewModels/SearchBarVm.cs", "Nexora/Views/SearchBar.axaml*"]}, {"id": "queue", "name": "Queue panel", "kind": "feature", "project": "Nexora", "ns": "Nexora.ViewModels", "col": 1, "row": "B", "portability": 1, "iface": "QueueVm (Tracks)", "impl": "QueueVm", "libs": "CommunityToolkit.Mvvm", "note": "Mirrors PlaybackQueue into track rows.", "files": ["Nexora/ViewModels/QueueVm.cs"]}, {"id": "tracklist", "name": "Track rows", "kind": "feature", "project": "Nexora", "ns": "Nexora.ViewModels, Nexora.Controls, Nexora.Views", "col": 2, "row": "B", "portability": 1, "iface": "TrackControlVmRegistry.Create, TrackControlVm", "impl": "TrackControlVm, CoveredTrackVm, TrackGridRow, TrackControl, TrackTile, TrackArea, TrackGrid", "libs": "Avalonia, CommunityToolkit.Mvvm", "note": "One row per playlist item. The registry routes player state, playback position and tag changes to the rows that show the affected track.", "files": ["Nexora/ViewModels/TrackControlVm.cs", "Nexora/ViewModels/TrackControlVmRegistry.cs", "Nexora/ViewModels/CoveredTrackVm.cs", "Nexora/ViewModels/TrackGridRow.cs", "Nexora/Controls/TrackControl.axaml*", "Nexora/Controls/TrackTile.axaml*", "Nexora/Views/TrackArea.axaml*", "Nexora/Views/TrackGrid.axaml*"]}, {"id": "trackeditor", "name": "Track editor", "kind": "feature", "project": "Nexora", "ns": "Nexora.ViewModels, Nexora.Views", "col": 3, "row": "B", "portability": 1, "iface": "TrackEditorVm.Open, Save, Cancel", "impl": "TrackEditorVm, ArtistSuggestion, LargeCoverVm, TrackEditor", "libs": "CommunityToolkit.Mvvm", "note": "Edits title and artists with artist suggestions. Saves through TrackControlVm.ApplyEditAsync, which forms a cycle with the track rows.", "files": ["Nexora/ViewModels/TrackEditorVm.cs", "Nexora/ViewModels/ArtistSuggestion.cs", "Nexora/Views/TrackEditor.axaml*"]}, {"id": "playbar", "name": "Playback bar", "kind": "feature", "project": "Nexora", "ns": "Nexora.ViewModels, Nexora.Views, Nexora.Controls", "col": 4, "row": "B", "portability": 1, "iface": "PlaybackVm (commands, volume, position)", "impl": "PlaybackVm, TrackViewVm, PlaybackControl, TrackView", "libs": "CommunityToolkit.Mvvm", "note": "Transport controls, volume, mute and the playing track's title and cover.", "files": ["Nexora/ViewModels/PlaybackVm.cs", "Nexora/ViewModels/TrackViewVm.cs", "Nexora/Views/PlaybackControl.axaml*", "Nexora/Controls/TrackView.axaml*"]}, {"id": "coverviewer", "name": "Cover viewer", "kind": "feature", "project": "Nexora", "ns": "Nexora.ViewModels, Nexora.Views", "col": 5, "row": "B", "portability": 2, "iface": "CoverViewerVm.Open, Close", "impl": "CoverViewerVm, LargeCoverVm, CoverViewer", "libs": "Avalonia", "note": "Full-size cover popup with a draggable, tilting card. LargeCoverVm is shared with the track editor.", "files": ["Nexora/ViewModels/CoverViewerVm.cs", "Nexora/ViewModels/LargeCoverVm.cs", "Nexora/Views/CoverViewer.axaml*"]}, {"id": "applog", "name": "Logging setup", "kind": "infra", "project": "Nexora", "ns": "Nexora.Logging", "col": 0, "row": "C", "portability": 2, "iface": "LoggingInitializer, CrashLogger, LogLevelArgument", "impl": "SessionLogFiles, AvaloniaLogSink, DiagnosticsLogListener, WindowsConsole", "libs": "ZLogger, Microsoft.Extensions.Logging, Avalonia", "note": "Session log files with rotation, colored console, level legend, crash logging and forwarding of Avalonia and System.Diagnostics output.", "files": ["Nexora/Logging/*"]}, {"id": "scroller", "name": "Smooth scroller", "kind": "utility", "project": "Nexora", "ns": "Nexora.Controls", "col": 1, "row": "C", "portability": 3, "iface": "SmoothScroller", "impl": "SmoothScroller (kinetic scrolling)", "libs": "Avalonia", "note": "Self-contained animated scrolling used by the list and grid views.", "files": ["Nexora/Controls/SmoothScroller.cs"]}, {"id": "dispatcher", "name": "UI dispatcher", "kind": "utility", "project": "Nexora", "ns": "Nexora.Threading", "col": 2, "row": "C", "portability": 3, "iface": "IUiDispatcher.Post", "impl": "AvaloniaUiDispatcher", "libs": "Avalonia", "note": "Keeps view models testable: background events reach the UI thread only through this interface.", "files": ["Nexora/Threading/*"]}, {"id": "controls", "name": "Basic controls", "kind": "utility", "project": "Nexora", "ns": "Nexora.Controls, Nexora.Converters", "col": 3, "row": "C", "portability": 3, "iface": "Icon, SegmentedControl, PopupBackdrop", "impl": "IconNameToSourceConverter, Assets/Icons/*.svg", "libs": "Avalonia, Svg.Controls.Skia.Avalonia", "note": "Generic controls with no domain knowledge.", "files": ["Nexora/Controls/Icon.axaml*", "Nexora/Controls/SegmentedControl.*", "Nexora/Controls/PopupBackdrop.*", "Nexora/Converters/*"]}, {"id": "dither", "name": "Dithered gradient", "kind": "utility", "project": "Nexora", "ns": "Nexora.Render", "col": 4, "row": "C", "portability": 3, "iface": "DitheringControl", "impl": "DitherGradientEffect, GradientStopSnapshot, Assets/Shaders/DitherGradient.sksl", "libs": "Avalonia, SkiaSharp", "note": "Banding-free background gradient drawn with an SkSL shader.", "files": ["Nexora/Render/DitheringControl.cs", "Nexora/Render/DitherGradientEffect.cs", "Nexora/Render/GradientStopSnapshot.cs"]}, {"id": "card", "name": "Card drag physics", "kind": "utility", "project": "Nexora", "ns": "Nexora.Render", "col": 5, "row": "C", "portability": 3, "iface": "CardTransform", "impl": "DragSample", "libs": "Avalonia (matrices)", "note": "Tilt, drag and fling math for the cover viewer card.", "files": ["Nexora/Render/CardTransform.cs", "Nexora/Render/DragSample.cs"]}, {"id": "composition", "name": "Startup and composition", "kind": "infra", "project": "Nexora", "ns": "Nexora", "col": 0, "row": "D", "portability": 1, "iface": "Program.Main, App, CompositionRoot", "impl": "DI registrations, single-instance mutex, startup sequence", "libs": "Microsoft.Extensions.DependencyInjection, Avalonia", "note": "Wires every module. On start it loads tracks, fills the artist registry and global playlist, runs the loudness scan and starts Rich Presence. Toggle its wires above.", "files": ["Nexora/Program.cs", "Nexora/App.axaml*", "Nexora/CompositionRoot.cs"]}, {"id": "kbproviders", "name": "Platform keyboard layouts", "kind": "adapter", "project": "Nexora", "ns": "Nexora.Input", "col": 1, "row": "D", "portability": 2, "iface": "implements IKeyboardLayoutProvider", "impl": "WindowsKeyboardLayoutProvider, WaylandKeyboardLayoutProvider, WaylandKeymapReceiver, UnsupportedKeyboardLayoutProvider, KeyboardScanCodes", "libs": "Win32, libxkbcommon, libwayland-client", "note": "Reads the active keyboard layouts from the OS for layout-tolerant search.", "files": ["Nexora/Input/*"]}, {"id": "renderscale", "name": "Render scale", "kind": "utility", "project": "Nexora", "ns": "Nexora.Render", "col": 2, "row": "D", "portability": 3, "iface": "RenderScaleProvider", "impl": "RenderScaleProvider.Track(window)", "libs": "Avalonia", "note": "Tracks the main window's DPI scale so covers are decoded at the right pixel size.", "files": ["Nexora/Render/RenderScaleProvider.cs"]}, {"id": "covers", "name": "Cover cache", "kind": "service", "project": "Nexora", "ns": "Nexora.Media", "col": 3, "row": "D", "portability": 2, "iface": "ICoverCache (thumbnail and large)", "impl": "CoverCache", "libs": "Avalonia (Bitmap)", "note": "Decodes embedded covers off the UI thread at render scale and keeps them in LRU caches.", "files": ["Nexora/Media/*"]}, {"id": "animations", "name": "Animation settings", "kind": "infra", "project": "Nexora", "ns": "Nexora.Animations", "col": 5, "row": "D", "portability": 1, "iface": "AnimationSettingsLoader, AnimationResourceFactory", "impl": "AnimationSettings records, AnimationSettingsJsonContext, Assets/animations.json", "libs": "System.Text.Json (source generated)", "note": "Reads durations and easings from animations.json plus optional overrides, then writes StaticResource entries into the theme before XAML loads.", "files": ["Nexora/Animations/*"]}, {"id": "theme", "name": "Nexora theme", "kind": "utility", "project": "Nexora.Theme", "ns": "Nexora.Theme", "col": 6.15, "row": "C", "portability": 3, "iface": "NexoraTheme, AnimationResources.Entries", "impl": "Colors, Typography, Slider and TextBox styles", "libs": "Avalonia, Avalonia.Themes.Fluent", "note": "Visual styles only. AnimationResources is an empty holder the app fills at startup.", "files": ["Nexora.Theme/*"]}, {"id": "search", "name": "Track search", "kind": "service", "project": "Core", "ns": "Core.Search", "col": 0, "row": "E", "portability": 2, "iface": "TrackSearchQuery.Match, TrackMatch", "impl": "QueryVariant, MatchKind, MatchField, MatchBoundary", "libs": "none", "note": "Ranks title and artist matches, including queries typed in the wrong keyboard layout.", "files": ["Core/Search/*"]}, {"id": "keyboard", "name": "Keyboard layout translation", "kind": "service", "project": "Core", "ns": "Core.Input", "col": 1, "row": "E", "portability": 3, "iface": "KeyboardLayoutTranslator, IKeyboardLayoutProvider", "impl": "KeyboardLayout, KeyboardKey", "libs": "none", "note": "Retypes a string as if it had been typed in another active layout. The OS lookup is a port implemented in the app.", "files": ["Core/Input/*"]}, {"id": "editor", "name": "Track metadata editor", "kind": "service", "project": "Core", "ns": "Core.Storage.Tags", "col": 2, "row": "E", "portability": 1, "iface": "TrackMetadataEditor.EditAsync, MetadataChanged", "impl": "MetadataChange normalization", "libs": "none", "note": "Normalizes an edit, writes it through IMetadataSaver with the playing file released, applies it in memory and raises MetadataChanged.", "files": ["Core/Storage/Tags/TrackMetadataEditor.cs"]}, {"id": "artists", "name": "Artist registry", "kind": "service", "project": "Core", "ns": "Core.Library", "col": 3, "row": "E", "portability": 2, "iface": "ArtistRegistry.AddTracks, FindByPrefix", "impl": "Artist", "libs": "none", "note": "Artist index for suggestions; re-indexes a track when its tags change.", "files": ["Core/Library/*"]}, {"id": "discord", "name": "Discord Rich Presence", "kind": "adapter", "project": "Core", "ns": "Core.Integrations", "col": 4, "row": "E", "portability": 2, "iface": "IRichPresenceService, IDiscordClient", "impl": "DiscordRichPresenceService, DiscordRpcClientAdapter, DiscordRpcLogger", "libs": "DiscordRichPresence", "note": "Shows the playing track in Discord and survives Discord not running.", "files": ["Core/Integrations/*"]}, {"id": "scanner", "name": "Loudness scan", "kind": "service", "project": "Core", "ns": "Core.Playback.Loudness", "col": 5, "row": "E", "portability": 1, "iface": "LoudnessScanner.ScanAsync", "impl": "LoudnessScannerDegreeOfParallelismProvider", "libs": "none", "note": "At startup, measures tracks without loudness tags in parallel and writes the tags back.", "files": ["Core/Playback/Loudness/LoudnessScanner*.cs"]}, {"id": "corelog", "name": "Logging API", "kind": "utility", "project": "Core", "ns": "Core.Logging", "col": 0, "row": "F", "portability": 3, "iface": "logger.Trace/Debug/Info/Warn/Error/Crit", "impl": "LoggingExtensions, LibVlcLogForwarder, DiscordRpcLogger", "libs": "ZLogger, Microsoft.Extensions.Logging", "note": "Interpolated-string logging used by almost every module (not drawn), plus adapters that pipe LibVLC and Discord logs into it.", "files": ["Core/Logging/*"]}, {"id": "playlists", "name": "Playlists and queue", "kind": "service", "project": "Core", "ns": "Core.Playlists", "col": 1, "row": "F", "portability": 2, "iface": "Playlist, IPlaylistItem, PlaybackQueue, PlaylistRegistry", "impl": "PlaylistItem", "libs": "none", "note": "Ordered track lists with next/previous navigation; the queue skips or stops when its playing item is removed.", "files": ["Core/Playlists/*"]}, {"id": "player", "name": "Audio player", "kind": "service", "project": "Core", "ns": "Core.Playback", "col": 2, "row": "F", "portability": 2, "iface": "IAudioPlayer, PlaybackState, ReleaseFileAsync", "impl": "AudioPlayer, IMediaEngine (port)", "libs": "none", "note": "Owns the playback state, volume and loudness gain, and briefly releases the playing file for tag writes.", "files": ["Core/Playback/AudioPlayer.cs", "Core/Playback/IAudioPlayer.cs", "Core/Playback/IMediaEngine.cs", "Core/Playback/PlaybackState.cs", "Core/Playback/PlaybackStatus.cs"]}, {"id": "vlcengine", "name": "LibVLC media engine", "kind": "adapter", "project": "Core", "ns": "Core.Playback", "col": 3, "row": "F", "portability": 2, "iface": "implements IMediaEngine", "impl": "VlcMediaEngine", "libs": "LibVLCSharp", "note": "Thin adapter over LibVLC MediaPlayer events and calls.", "files": ["Core/Playback/VlcMediaEngine.cs"]}, {"id": "loudness", "name": "Loudness measurement", "kind": "service", "project": "Core", "ns": "Core.Playback.Loudness", "col": 4, "row": "F", "portability": 3, "iface": "ILoudnessAnalyzer, LoudnessGain, TrackLoudness", "impl": "VlcLoudnessAnalyzer, LoudnessMeter (K-weighting, gating)", "libs": "LibVLCSharp (analyzer only)", "note": "Integrated loudness and peak per track; the meter and gain math are pure and portable.", "files": ["Core/Playback/Loudness/ILoudnessAnalyzer.cs", "Core/Playback/Loudness/LoudnessGain.cs", "Core/Playback/Loudness/LoudnessMeter.cs", "Core/Playback/Loudness/TrackLoudness.cs", "Core/Playback/Loudness/VlcLoudnessAnalyzer.cs"]}, {"id": "loader", "name": "Library loading", "kind": "service", "project": "Core", "ns": "Core.Storage", "col": 5, "row": "F", "portability": 2, "iface": "ITrackLoader, IDegreeOfParallelismProvider", "impl": "FileTrackLoader, MusicDirectoryProvider, SupportedAudioFormatsProvider", "libs": "none", "note": "Finds supported audio files under the music folder and reads their tags in parallel.", "files": ["Core/Storage/*TrackLoader*.cs", "Core/Storage/IDegreeOfParallelismProvider.cs", "Core/Storage/*MusicDirectoryProvider.cs", "Core/Storage/*SupportedAudioFormatsProvider.cs"]}, {"id": "volume", "name": "Volume storage", "kind": "utility", "project": "Core", "ns": "Core.Storage", "col": 1, "row": "G", "portability": 3, "iface": "IVolumeStorage", "impl": "FileVolumeStorage (volume.txt)", "libs": "none", "note": "Persists the last volume next to the logs.", "files": ["Core/Storage/*VolumeStorage.cs"]}, {"id": "track", "name": "Track model", "kind": "model", "project": "Core", "ns": "Core.Playback", "col": 2, "row": "G", "portability": 3, "iface": "IAudioTrack, AudioTrack, Metadata", "impl": "plain data", "libs": "none", "note": "One instance per audio file, shared by every playlist and the artist registry.", "files": ["Core/Playback/AudioTrack.cs", "Core/Playback/IAudioTrack.cs", "Core/Playback/Metadata.cs"]}, {"id": "lru", "name": "LRU cache", "kind": "utility", "project": "Core", "ns": "Core.Collections", "col": 3, "row": "G", "portability": 3, "iface": "LruCache<TKey, TValue>", "impl": "LruCache", "libs": "none", "note": "Generic bounded cache.", "files": ["Core/Collections/*"]}, {"id": "tagstore", "name": "Tag storage", "kind": "adapter", "project": "Core", "ns": "Core.Storage.Tags", "col": 4, "row": "G", "portability": 2, "iface": "IMetadataLoader, IMetadataSaver, ITrackCoverLoader", "impl": "TagLibMetadataLoader, TagLibMetadataSaver (per-file lock), TagLibTrackCoverLoader, LoudnessTags", "libs": "TagLibSharp", "note": "Reads and atomically rewrites tags, ReplayGain loudness and covers; AOT needs its DynamicDependency hints.", "files": ["Core/Storage/Tags/I*.cs", "Core/Storage/Tags/TagLib*.cs", "Core/Storage/Tags/LoudnessTags.cs", "Core/Storage/Tags/MetadataChange.cs"]}], "externals": [{"id": "x-avalonia", "name": "Avalonia", "sub": "+ Desktop, Wayland, Fonts.Inter", "kind": "package", "projects": "Nexora, Nexora.Theme", "note": "UI framework: controls, XAML, bindings, rendering, the UI thread, bitmaps and transitions."}, {"id": "x-fluent", "name": "Avalonia.Themes.Fluent", "sub": "base theme", "kind": "package", "projects": "Nexora.Theme", "note": "Fluent base styles that the Nexora theme builds on."}, {"id": "x-mvvm", "name": "CommunityToolkit.Mvvm", "sub": "ObservableProperty, RelayCommand", "kind": "package", "projects": "Nexora", "note": "Source generators for observable properties and commands in every view model."}, {"id": "x-svg", "name": "Svg.Controls.Skia", "sub": "Svg.Controls.Skia.Avalonia", "kind": "package", "projects": "Nexora", "note": "Renders the SVG icons in Icon.axaml."}, {"id": "x-skia", "name": "SkiaSharp", "sub": "through Avalonia.Skia", "kind": "package", "projects": "Nexora", "note": "SkSL runtime effect behind the dithered gradient. Comes in with Avalonia, not referenced directly."}, {"id": "x-di", "name": "DependencyInjection", "sub": "Microsoft.Extensions", "kind": "package", "projects": "Nexora", "note": "Service container used only by the composition root and App."}, {"id": "x-win32", "name": "Win32 API", "sub": "user32.dll, kernel32.dll", "kind": "native", "projects": "Nexora", "note": "Keyboard layouts (user32) and attaching to the parent console (kernel32), through LibraryImport."}, {"id": "x-wayland", "name": "Wayland and xkb", "sub": "libwayland-client, libxkbcommon", "kind": "native", "projects": "Nexora", "note": "Linux keymap: receives the compositor keymap and resolves layouts with xkbcommon."}, {"id": "x-zlogger", "name": "ZLogger", "sub": "+ Microsoft.Extensions.Logging", "kind": "package", "projects": "Core, Nexora", "note": "Structured logging backend behind the logging extensions and the session log files."}, {"id": "x-discord", "name": "DiscordRichPresence", "sub": "DiscordRPC", "kind": "package", "projects": "Core", "note": "Discord IPC client wrapped by DiscordRpcClientAdapter."}, {"id": "x-libvlc", "name": "LibVLCSharp", "sub": "+ VideoLAN.LibVLC.Windows", "kind": "package", "projects": "Core, Nexora", "note": "Playback and decoding. The app creates the shared LibVLC instance; the loudness analyzer creates its own."}, {"id": "x-taglib", "name": "TagLibSharp", "sub": "TagLib", "kind": "package", "projects": "Core", "note": "Reads and writes tags, ReplayGain values and embedded covers."}], "edges": [["mainwindow", "searchbar"], ["mainwindow", "queue"], ["mainwindow", "trackeditor"], ["mainwindow", "playbar"], ["mainwindow", "coverviewer"], ["mainwindow", "dither"], ["mainwindow", "controls", "uses", "SegmentedControl"], ["searchbar", "search", "uses", "TrackSearchQuery"], ["searchbar", "keyboard", "uses", "KeyboardLayoutTranslator"], ["searchbar", "playlists", "uses", "PlaylistRegistry"], ["searchbar", "tracklist", "uses", "TrackControlVmRegistry"], ["searchbar", "dispatcher"], ["queue", "playlists", "listens", "PlaybackQueue events"], ["queue", "tracklist", "uses", "TrackControlVmRegistry"], ["queue", "dispatcher"], ["tracklist", "player", "uses", "IAudioPlayer, StateChanged"], ["tracklist", "playlists", "uses", "PlaybackQueue"], ["tracklist", "editor", "listens", "TrackMetadataEditor"], ["tracklist", "covers", "uses", "ICoverCache"], ["tracklist", "dispatcher"], ["tracklist", "scroller"], ["tracklist", "trackeditor", "cycle", "TrackEditorVm.Open"], ["trackeditor", "tracklist", "cycle", "TrackControlVm.ApplyEditAsync"], ["trackeditor", "artists", "uses", "ArtistRegistry"], ["trackeditor", "player", "listens", "IAudioPlayer.StateChanged"], ["trackeditor", "covers", "uses", "ICoverCache"], ["trackeditor", "controls", "uses", "PopupBackdrop"], ["trackeditor", "dispatcher"], ["playbar", "player", "uses", "IAudioPlayer"], ["playbar", "editor", "listens", "MetadataChanged"], ["playbar", "covers", "uses", "ICoverCache"], ["playbar", "coverviewer", "uses", "CoverViewerVm"], ["playbar", "dispatcher"], ["coverviewer", "covers", "uses", "ICoverCache"], ["coverviewer", "card", "uses", "CardTransform"], ["coverviewer", "controls", "uses", "PopupBackdrop"], ["coverviewer", "dispatcher"], ["applog", "corelog", "uses", "DiscordRpcLogger category"], ["applog", "dispatcher", "uses", "IUiDispatcher (CrashLogger)"], ["scroller", "dispatcher"], ["kbproviders", "keyboard", "implements", "IKeyboardLayoutProvider"], ["covers", "lru", "uses", "LruCache"], ["covers", "tagstore", "uses", "ITrackCoverLoader"], ["covers", "renderscale"], ["animations", "theme", "uses", "AnimationResources.Entries"], ["animations", "controls", "uses", "SegmentedControl settings"], ["search", "keyboard", "uses", "KeyboardLayoutTranslator"], ["search", "track"], ["editor", "tagstore", "uses", "IMetadataSaver, TagLibMetadataLoader.GetDisplayedTitle"], ["editor", "player", "uses", "ReleaseFileAsync"], ["editor", "track"], ["artists", "editor", "listens", "MetadataChanged"], ["artists", "track"], ["discord", "player", "listens", "IAudioPlayer.StateChanged"], ["discord", "corelog", "uses", "DiscordRpcLogger"], ["scanner", "loudness", "uses", "ILoudnessAnalyzer"], ["scanner", "tagstore", "uses", "IMetadataSaver"], ["scanner", "player", "uses", "ReleaseFileAsync"], ["scanner", "loader", "uses", "IDegreeOfParallelismProvider"], ["scanner", "track"], ["player", "playlists", "cycle", "IPlaylistItem"], ["playlists", "player", "cycle", "PlaybackQueue → IAudioPlayer"], ["vlcengine", "player", "implements", "IMediaEngine"], ["player", "volume", "uses", "IVolumeStorage"], ["player", "loudness", "uses", "LoudnessGain"], ["player", "track"], ["playlists", "track"], ["loader", "tagstore", "uses", "IMetadataLoader"], ["loader", "track"], ["tagstore", "track", "uses", "Metadata"], ["tagstore", "loudness", "uses", "TrackLoudness (LoudnessTags)"], ["track", "loudness", "uses", "Metadata.Loudness : TrackLoudness"], ["composition", "loader", "wiring", "starts loaders"], ["composition", "artists", "wiring", "AddTracks"], ["composition", "playlists", "wiring", "GlobalPlaylist.AddTracks"], ["composition", "scanner", "wiring", "ScanAsync"], ["composition", "discord", "wiring", "starts Rich Presence"], ["composition", "animations", "wiring", "loads settings"], ["composition", "applog", "wiring", "initializes logging"], ["composition", "mainwindow", "wiring", "creates window"], ["composition", "kbproviders", "wiring", "picks provider per OS"], ["composition", "renderscale", "wiring", "tracks window"], ["composition", "theme", "wiring", "App.axaml"], ["mainwindow", "x-avalonia", "external"], ["searchbar", "x-avalonia", "external"], ["tracklist", "x-avalonia", "external"], ["trackeditor", "x-avalonia", "external"], ["playbar", "x-avalonia", "external"], ["coverviewer", "x-avalonia", "external"], ["applog", "x-avalonia", "external"], ["scroller", "x-avalonia", "external"], ["dispatcher", "x-avalonia", "external"], ["controls", "x-avalonia", "external"], ["dither", "x-avalonia", "external"], ["card", "x-avalonia", "external"], ["composition", "x-avalonia", "external"], ["renderscale", "x-avalonia", "external"], ["covers", "x-avalonia", "external"], ["animations", "x-avalonia", "external"], ["theme", "x-avalonia", "external"], ["theme", "x-fluent", "external"], ["mainwindow", "x-mvvm", "external"], ["searchbar", "x-mvvm", "external"], ["queue", "x-mvvm", "external"], ["tracklist", "x-mvvm", "external"], ["trackeditor", "x-mvvm", "external"], ["playbar", "x-mvvm", "external"], ["coverviewer", "x-mvvm", "external"], ["controls", "x-svg", "external", "Icon.axaml"], ["dither", "x-skia", "external", "SKRuntimeEffect"], ["composition", "x-di", "external", "ServiceCollection"], ["kbproviders", "x-win32", "external", "user32 keyboard layouts"], ["applog", "x-win32", "external", "kernel32 AttachConsole"], ["kbproviders", "x-wayland", "external", "keymap and layouts"], ["corelog", "x-zlogger", "external"], ["applog", "x-zlogger", "external", "file and console providers"], ["discord", "x-discord", "external", "DiscordRpcClient"], ["vlcengine", "x-libvlc", "external", "MediaPlayer"], ["loudness", "x-libvlc", "external", "audio callbacks"], ["composition", "x-libvlc", "external", "creates LibVLC"], ["tagstore", "x-taglib", "external", "TagLib.File"]], "notes": [{"level": "bad", "tag": "Cycle", "title": "Audio player and playlists", "text": "IAudioPlayer takes and reports IPlaylistItem, while PlaybackQueue calls IAudioPlayer to skip or stop. Neither can be moved without the other."}, {"level": "bad", "tag": "Cycle", "title": "Track rows and track editor", "text": "TrackControlVm opens TrackEditorVm, and TrackEditorVm saves back through TrackControlVm.ApplyEditAsync, which only forwards to TrackMetadataEditor."}, {"level": "warn", "tag": "Concrete dependency", "title": "Track metadata editor", "text": "Lives in Core.Storage.Tags but depends on IAudioPlayer to release files and on the concrete TagLibMetadataLoader for the empty-title rule. ArtistRegistry and three view models subscribe to its concrete MetadataChanged event; there is no interface."}, {"level": "warn", "tag": "Reach across areas", "title": "Loudness scan", "text": "A Playback module that needs Storage (IDegreeOfParallelismProvider), Tags (IMetadataSaver) and the player. It is the least portable piece of Core."}, {"level": "warn", "tag": "Model leak", "title": "Track model", "text": "Metadata.Loudness is a TrackLoudness from Core.Playback.Loudness, so the shared track model and the tag adapter both depend on the loudness area."}, {"level": "warn", "tag": "Static hand-off", "title": "Animation settings to theme", "text": "The app writes StaticResource entries into the theme's static AnimationResources.Entries before XAML loads. The theme project cannot animate on its own."}, {"level": "ok", "tag": "Port and adapter", "title": "Keyboard layouts", "text": "Core owns IKeyboardLayoutProvider; the app implements it per OS. This crossing is intentional and keeps Core free of Win32 and Wayland."}, {"level": "ok", "tag": "Seams", "title": "Player and LibVLC, Discord, UI thread", "text": "IMediaEngine, IDiscordClient and IUiDispatcher isolate LibVLC, the Discord library and Avalonia's dispatcher, so the modules behind them are tested without the real thing."}]};
+
+const W = 180, H = 74, COL0 = 30, COL_STEP = 205, ROW0 = 62, ROW_STEP = 110;
+const PAD_LEFT = 18, PAD_RIGHT = 24, HEADER = 48, PAD_BOTTOM = 16;
+const EXT_W = 204, EXT_H = 52, EXT_COLUMN = 244;
+
+const kindLabel = { feature: "FEATURE", service: "SERVICE", adapter: "ADAPTER", utility: "UTILITY", infra: "APP INFRA", model: "MODEL" };
+const portLabel = { 1: "low", 2: "medium", 3: "high" };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+document.getElementById("heading").textContent = DATA.title;
+document.getElementById("lede").textContent = DATA.lede;
+document.getElementById("notdrawn").innerHTML = DATA.notDrawn || "";
+
+const rowY = {};
+let y = ROW0;
+DATA.rows.forEach((r, i) => {
+  if(i > 0) y += ROW_STEP + (r.gapBefore || 0);
+  rowY[r.id] = y;
+});
+
+const M = DATA.modules.map(m => Object.assign({}, m, { x: COL0 + m.col * COL_STEP, y: rowY[m.row], w: W, h: H, p: m.project, port: m.portability }));
+
+const projects = DATA.projects.map((p, index) => {
+  const own = M.filter(m => m.p === p.id);
+  const minX = Math.min(...own.map(m => m.x)), maxX = Math.max(...own.map(m => m.x + W));
+  const minY = Math.min(...own.map(m => m.y)), maxY = Math.max(...own.map(m => m.y + H));
+  return Object.assign({}, p, { x: minX - PAD_LEFT, y: minY - HEADER, w: maxX - minX + PAD_LEFT + PAD_RIGHT, h: maxY - minY + HEADER + PAD_BOTTOM, fill: `var(--proj-${index % 6 + 1})` });
+});
+const mapTop = Math.min(...projects.map(p => p.y));
+const mapBottom = Math.max(...projects.map(p => p.y + p.h));
+const extX = Math.max(...projects.map(p => p.x + p.w)) + 16;
+const packageKind = DATA.packageKind || "package";
+const extProjectData = { id: "External", title: "External", sub: `x · ${packageKind}s and OS libraries`, x: extX, y: mapTop, w: EXT_COLUMN, h: mapBottom - mapTop, fill: "var(--bg)" };
+if(DATA.externals.length > 0) projects.push(extProjectData);
+
+const extStep = DATA.externals.length > 1 ? Math.min(72, (mapBottom - mapTop - 26 - EXT_H - 14) / (DATA.externals.length - 1)) : 0;
+const X = DATA.externals.map((x, i) => Object.assign({}, x, { ext: true, p: "External", x: extX + 20, y: mapTop + 26 + i * extStep, w: EXT_W, h: EXT_H }));
+const ALL = M.concat(X);
+const byId = Object.fromEntries(ALL.map(m => [m.id, m]));
+
+const E = DATA.edges.map(e => ({ from: e[0], to: e[1], type: e[2] || "uses", via: e[3] || "" }));
+E.forEach(e => { e.cross = byId[e.from].p !== byId[e.to].p && !byId[e.to].ext; });
+
+const svg = document.getElementById("map");
+const viewWidth = (DATA.externals.length > 0 ? extX + EXT_COLUMN : extX - 16) + 12;
+svg.setAttribute("viewBox", `0 0 ${viewWidth} ${mapBottom + 14}`);
+svg.style.minWidth = Math.round(viewWidth * 0.78) + "px";
+
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs, parent) => {
+  const node = document.createElementNS(NS, tag);
+  for(const k in attrs) node.setAttribute(k, attrs[k]);
+  if(parent) parent.appendChild(node);
+  return node;
+};
+const defs = el("defs", {}, svg);
+[["a-wire", "var(--wire)"], ["a-cross", "var(--cross)"], ["a-cycle", "var(--cycle)"], ["a-impl", "var(--impl)"], ["a-wiring", "var(--muted)"]].forEach(([id, color]) => {
+  const marker = el("marker", { id, viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" }, defs);
+  el("path", { d: "M0,0 L10,5 L0,10 z", fill: color }, marker);
+});
+
+projects.forEach(p => {
+  const g = el("g", { class: "proj" }, svg);
+  p.node = g;
+  el("rect", { x: p.x, y: p.y, width: p.w, height: p.h, rx: 12, fill: p.fill }, g);
+  el("text", { x: p.x + 16, y: p.y + 24, class: "title" }, g).textContent = p.title;
+  if(p.w > 400) el("text", { x: p.x + 16 + p.title.length * 9.6 + 14, y: p.y + 24, class: "sub" }, g).textContent = p.sub;
+  else el("text", { x: p.x + 16, y: p.y + 42, class: "sub" }, g).textContent = p.sub.split(" · ")[1] || "";
+});
+DATA.rows.filter(r => r.lane).forEach(r => { el("text", { x: COL0, y: rowY[r.id] - 12, class: "lane" }, svg).textContent = r.lane; });
+
+const edgeLayer = el("g", {}, svg);
+const nodeLayer = el("g", {}, svg);
+
+function anchors(a, b) {
+  const acx = a.x + a.w / 2, acy = a.y + a.h / 2, bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
+  const dx = bcx - acx, dy = bcy - acy;
+  if(!b.ext && Math.abs(dy) > H * 0.8) {
+    const sx = acx + Math.max(-60, Math.min(60, dx * 0.12));
+    const tx = bcx - Math.max(-60, Math.min(60, dx * 0.12));
+    const sy = dy > 0 ? a.y + a.h : a.y, ty = dy > 0 ? b.y : b.y + b.h;
+    const k = Math.max(30, Math.abs(ty - sy) * 0.45) * Math.sign(dy);
+    return `M${sx},${sy} C${sx},${sy + k} ${tx},${ty - k} ${tx},${ty}`;
+  }
+  const sx = dx > 0 ? a.x + a.w : a.x, tx = dx > 0 ? b.x : b.x + b.w;
+  const spread = b.ext ? 20 : 18;
+  const sy = acy + Math.max(-spread, Math.min(spread, dy * 0.2)), ty = bcy - Math.max(-spread, Math.min(spread, dy * 0.05));
+  const k = Math.max(24, Math.abs(tx - sx) * 0.4) * Math.sign(dx || 1);
+  return `M${sx},${sy} C${sx + k},${sy} ${tx - k},${ty} ${tx},${ty}`;
+}
+
+function cycleOffset(e) {
+  return E.some(o => o.from === e.to && o.to === e.from) ? (e.from < e.to ? -10 : 10) : 0;
+}
+
+E.forEach(e => {
+  const a = byId[e.from], b = byId[e.to];
+  const off = cycleOffset(e);
+  const a2 = { x: a.x + off, y: a.y + off * 0.6, w: a.w, h: a.h }, b2 = { x: b.x + off, y: b.y + off * 0.6, w: b.w, h: b.h, ext: b.ext };
+  const cls = ["edge", e.type, e.cross && e.type !== "wiring" ? "cross" : ""].join(" ");
+  const g = el("g", { class: cls }, edgeLayer);
+  const marker = e.type === "wiring" || e.type === "external" ? "a-wiring" : e.type === "cycle" ? "a-cycle" : e.type === "implements" ? "a-impl" : e.cross ? "a-cross" : "a-wire";
+  el("path", { d: anchors(a2, b2), "marker-end": `url(#${marker})` }, g);
+  el("title", {}, g).textContent = `${a.name} → ${b.name}${e.via ? ": " + e.via : ""}`;
+  e.node = g;
+});
+
+function bindNode(m, g) {
+  m.node = g;
+  g.addEventListener("mouseenter", () => highlight(m.id));
+  g.addEventListener("mouseleave", () => highlight(selected));
+  g.addEventListener("click", () => select(m.id));
+  g.addEventListener("keydown", ev => { if(ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(m.id); } });
+}
+
+M.forEach(m => {
+  const g = el("g", { class: "mod", tabindex: "0", role: "button", "aria-label": `${m.name}, ${m.p}` }, nodeLayer);
+  el("rect", { class: "box", x: m.x, y: m.y, width: W, height: H, rx: 7 }, g);
+  el("text", { class: "kind", x: m.x + 11, y: m.y + 17 }, g).textContent = kindLabel[m.kind];
+  for(let i = 0; i < 3; i++) el("circle", { class: "pip" + (i < m.port ? " on" : ""), cx: m.x + W - 33 + i * 10, cy: m.y + 13.5, r: 3.2 }, g);
+  el("text", { class: "name", x: m.x + 11, y: m.y + 38 }, g).textContent = m.name;
+  const iface = m.iface.split(/[,(]/)[0].trim();
+  el("text", { class: "iface", x: m.x + 11, y: m.y + 58 }, g).textContent = iface.length > 27 ? iface.slice(0, 26) + "…" : iface;
+  bindNode(m, g);
+});
+
+X.forEach(m => {
+  const g = el("g", { class: "mod ext", tabindex: "0", role: "button", "aria-label": `${m.name}, external library` }, nodeLayer);
+  el("rect", { class: "box", x: m.x, y: m.y, width: m.w, height: m.h, rx: 7 }, g);
+  el("text", { class: "kind", x: m.x + 11, y: m.y + 15 }, g).textContent = m.kind === "native" ? "OS LIBRARY" : packageKind.toUpperCase();
+  el("text", { class: "name", x: m.x + 11, y: m.y + 32 }, g).textContent = m.name;
+  el("text", { class: "sub", x: m.x + 11, y: m.y + 45 }, g).textContent = m.sub;
+  bindNode(m, g);
+});
+
+const wiring = document.getElementById("wiring");
+const externals = document.getElementById("externals");
+let selected = null;
+function isVisible(e) {
+  return (e.type !== "wiring" || wiring.checked) && (e.type !== "external" || externals.checked);
+}
+function applyToggles() {
+  E.forEach(e => { e.node.style.display = isVisible(e) ? "" : "none"; });
+  X.forEach(x => { x.node.style.display = externals.checked ? "" : "none"; });
+  if(extProjectData.node) extProjectData.node.style.display = externals.checked ? "" : "none";
+}
+wiring.addEventListener("change", () => { applyToggles(); highlight(selected); });
+externals.addEventListener("change", () => {
+  if(!externals.checked && selected != null && byId[selected].ext) select(selected);
+  applyToggles();
+  highlight(selected);
+});
+
+function highlight(id) {
+  ALL.forEach(m => m.node.classList.remove("related"));
+  E.forEach(e => e.node.classList.remove("related"));
+  if(id == null) { svg.classList.remove("dim"); return; }
+  svg.classList.add("dim");
+  byId[id].node.classList.add("related");
+  E.filter(isVisible).forEach(e => {
+    if(e.from === id || e.to === id) {
+      e.node.classList.add("related");
+      byId[e.from].node.classList.add("related");
+      byId[e.to].node.classList.add("related");
+    }
+  });
+}
+
+const panel = document.getElementById("panel");
+function chipList(list, side) {
+  if(list.length === 0) return '<span class="hint">none</span>';
+  return '<div class="chips">' + list.map(e => {
+    const other = byId[side === "out" ? e.to : e.from];
+    const suffix = e.type === "implements" ? " (implements)" : e.type === "external" && side === "out" ? " (library)"
+      : e.type === "listens" ? " (events)" : e.type === "cycle" ? " (cycle)" : "";
+    const label = other.name + (e.via ? ` · ${e.via}` : "") + suffix;
+    return `<button class="chip${e.cross ? " cross" : ""}" data-id="${other.id}">${esc(label)}</button>`;
+  }).join("") + "</div>";
+}
+function renderPanel(id) {
+  if(id == null) {
+    panel.innerHTML = '<h2>Pick a module</h2><p class="hint">Click any box in the diagram to see its public interface, hidden implementation, external libraries and every wire in and out.</p>';
+    return;
+  }
+  const m = byId[id];
+  const out = E.filter(e => e.from === id && e.type !== "wiring");
+  const inc = E.filter(e => e.to === id && e.type !== "wiring");
+  if(m.ext) {
+    panel.innerHTML = `
+      <div><p class="meta">external · ${m.kind === "native" ? "OS library" : esc(packageKind)} · referenced from ${esc(m.projects)}</p><h2>${esc(m.name)}</h2></div>
+      <p>${esc(m.note)}</p>
+      <dl>
+        <dt>Includes</dt><dd><code>${esc(m.sub)}</code></dd>
+        <dt>Used by</dt><dd>${chipList(inc, "in")}</dd>
+      </dl>`;
+  } else {
+    panel.innerHTML = `
+      <div><p class="meta">${esc(m.p)} · ${esc(m.ns)} · ${kindLabel[m.kind].toLowerCase()}</p><h2>${esc(m.name)}</h2></div>
+      <p>${esc(m.note)}</p>
+      <dl>
+        <dt>Public interface</dt><dd><code>${esc(m.iface)}</code></dd>
+        <dt>Implementation</dt><dd><code>${esc(m.impl)}</code></dd>
+        <dt>External libraries</dt><dd>${esc(m.libs)}</dd>
+        <dt>Portability</dt><dd><span class="portab ${portLabel[m.port]}">${portLabel[m.port]}</span></dd>
+        <dt>Depends on</dt><dd>${chipList(out, "out")}</dd>
+        <dt>Used by</dt><dd>${chipList(inc, "in")}</dd>
+      </dl>`;
+  }
+  panel.querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => select(b.dataset.id)));
+}
+function select(id) {
+  selected = selected === id ? null : id;
+  ALL.forEach(m => m.node.classList.toggle("selected", m.id === selected));
+  highlight(selected);
+  renderPanel(selected);
+}
+svg.addEventListener("click", ev => { if(ev.target === svg) select(selected); });
+applyToggles();
+renderPanel(null);
+
+const realEdges = E.filter(e => e.type !== "wiring" && e.type !== "external");
+const crossEdges = realEdges.filter(e => e.cross);
+const cyclePairs = new Set(E.filter(e => e.type === "cycle").map(e => [e.from, e.to].sort().join("|"))).size;
+const projectStats = DATA.projects.map(p => `<span><b>${M.filter(m => m.p === p.id).length}</b> in ${esc(p.title)}</span>`).join("");
+document.getElementById("stats").innerHTML =
+  `<span><b>${M.length}</b> modules</span>${projectStats}<span><b>${realEdges.length}</b> dependencies</span>` +
+  `<span><b>${crossEdges.length}</b> cross a project</span><span><b>${cyclePairs}</b> cycles</span>` +
+  `<span><b>${X.length}</b> external libraries</span>` +
+  (DATA.commit ? `<span>as of <b>${esc(DATA.commit)}</b>${DATA.date ? ", " + esc(DATA.date) : ""}</span>` : "");
+
+const tbody = document.querySelector("#crossings tbody");
+crossEdges.slice().sort((a, b) => byId[a.from].name.localeCompare(byId[b.from].name)).forEach(e => {
+  const tr = document.createElement("tr");
+  const how = e.type === "implements" ? ' <span class="hint">implements</span>' : e.type === "listens" ? ' <span class="hint">events</span>' : "";
+  tr.innerHTML = `<td>${esc(byId[e.from].name)} <span class="hint">${esc(byId[e.from].p)}</span></td>` +
+    `<td>${esc(byId[e.to].name)} <span class="hint">${esc(byId[e.to].p)}</span></td><td><code>${esc(e.via || "—")}</code>${how}</td>`;
+  tbody.appendChild(tr);
+});
+
+const allBody = document.querySelector("#all tbody");
+DATA.projects.forEach(p => M.filter(m => m.p === p.id).forEach(m => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td><button class="chip" data-id="${m.id}">${esc(m.name)}</button></td><td>${esc(m.p)}</td>` +
+    `<td><code>${esc(m.iface)}</code></td><td><span class="portab ${portLabel[m.port]}">${portLabel[m.port]}</span></td>`;
+  tr.querySelector("button").addEventListener("click", () => { select(m.id); panel.scrollIntoView({ behavior: "smooth", block: "nearest" }); });
+  allBody.appendChild(tr);
+}));
+
+document.getElementById("notes").innerHTML = DATA.notes.map(n =>
+  `<li><span class="tag ${esc(n.level)}">${esc(n.tag)}</span><h3>${esc(n.title)}</h3><p>${esc(n.text)}</p></li>`).join("");
+</script>
