@@ -6,24 +6,14 @@ public sealed class MapDocument
     public required string Lede { get; init; }
     public required string Commit { get; init; }
     public required string Date { get; init; }
-    public required MapSource Source { get; init; }
     public required string PackageKind { get; init; }
     public required string NotDrawn { get; init; }
     public required List<MapProject> Projects { get; init; }
     public required List<MapRow> Rows { get; init; }
-    public List<string> Shared { get; } = [];
     public required List<MapModule> Modules { get; init; }
     public required List<MapExternal> Externals { get; init; }
     public required List<List<string>> Edges { get; init; }
     public required List<MapNote> Notes { get; init; }
-}
-
-public sealed class MapSource
-{
-    public required string Root { get; init; }
-    public required string Profile { get; init; }
-    public required List<string> Suffixes { get; init; }
-    public required List<string> Exclude { get; init; }
 }
 
 public sealed class MapProject

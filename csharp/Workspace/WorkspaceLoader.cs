@@ -5,61 +5,59 @@ namespace ModuleMap.Workspace;
 
 public sealed class WorkspaceLoader
 {
-    private static readonly string[] TestAssemblyPrefixes =
-    [
-        "xunit",
-        "nunit",
-        "MSTest",
-        "Microsoft.VisualStudio.TestPlatform",
-        "Microsoft.TestPlatform"
-    ];
+    private static readonly HashSet<string> TestNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Test",
+        "Tests"
+    };
+    private readonly SolutionReader solutionReader;
     private readonly TextWriter log;
 
-    public WorkspaceLoader(TextWriter log)
+    public WorkspaceLoader(SolutionReader solutionReader, TextWriter log)
     {
+        this.solutionReader = solutionReader;
         this.log = log;
     }
 
     public async Task<LoadedSolution> LoadAsync(string path)
     {
+        string root = Path.GetDirectoryName(path) ?? ".";
+        var paths = solutionReader.ProjectPaths(path);
+        var skipped = paths.Where(it => IsTestProject(it, root)).ToList();
         var workspace = MSBuildWorkspace.Create();
         workspace.RegisterWorkspaceFailedHandler(it => log.WriteLine($"workspace: {it.Diagnostic.Message}"));
-        var solution = path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
-            ? (await workspace.OpenProjectAsync(path)).Solution
-            : await workspace.OpenSolutionAsync(path);
-        var projects = new List<Project>();
-        var skipped = new List<Project>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach(var project in solution.Projects.OrderBy(it => it.Name, StringComparer.Ordinal))
+        foreach(string projectPath in paths.Except(skipped))
         {
-            if(project.FilePath == null || !seen.Add(project.FilePath))
+            bool loaded = workspace.CurrentSolution.Projects
+                .Any(it => string.Equals(it.FilePath, projectPath, StringComparison.OrdinalIgnoreCase));
+            if(!loaded)
             {
-                continue;
+                await workspace.OpenProjectAsync(projectPath);
             }
+        }
 
-            if(IsTestProject(project))
-            {
-                skipped.Add(project);
-            }
-            else
+        var projects = new List<Project>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach(var project in workspace.CurrentSolution.Projects.OrderBy(it => it.Name, StringComparer.Ordinal))
+        {
+            if(project.FilePath != null && !IsTestProject(project.FilePath, root) && seen.Add(project.FilePath))
             {
                 projects.Add(project);
             }
         }
 
-        return new LoadedSolution() { Solution = solution, Projects = projects, SkippedProjects = skipped };
+        return new LoadedSolution()
+        {
+            Solution = workspace.CurrentSolution,
+            Projects = projects
+        };
     }
 
-    private static bool IsTestProject(Project project)
+    private static bool IsTestProject(string projectPath, string root)
     {
-        if(project.AssemblyName.Split('.').Any(it => it == "Tests" || it == "Test"))
-        {
-            return true;
-        }
-
-        return project.MetadataReferences
-            .OfType<PortableExecutableReference>()
-            .Select(it => Path.GetFileName(it.FilePath ?? ""))
-            .Any(name => TestAssemblyPrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)));
+        var nameParts = Path.GetFileNameWithoutExtension(projectPath).Split('.');
+        string directory = Path.GetRelativePath(root, Path.GetDirectoryName(projectPath) ?? root);
+        var folders = directory.Split(Path.DirectorySeparatorChar, '/');
+        return nameParts.Any(TestNames.Contains) || folders.Any(TestNames.Contains);
     }
 }

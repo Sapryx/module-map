@@ -8,7 +8,6 @@ namespace ModuleMap.Map;
 
 public sealed class MapBuilder
 {
-    private static readonly List<string> Suffixes = [".cs", ".axaml", ".xaml"];
     private const int ListLimit = 6;
     private readonly GitRepository repository;
     private readonly LayoutEngine layout;
@@ -54,7 +53,6 @@ public sealed class MapBuilder
                 + "bound to it, and every other namespace is a module. Every orange wire crosses a project boundary.",
             Commit = repository.Commit(),
             Date = DateTime.Now.ToString("yyyy-MM-dd"),
-            Source = Source(solution, drafts),
             PackageKind = "NuGet package",
             NotDrawn = NotDrawn(drafts, hiddenPackages),
             Projects = projects.Select(it => Project(solution, it)).ToList(),
@@ -249,25 +247,6 @@ public sealed class MapBuilder
             ? "no project references"
             : "references " + string.Join(", ", references);
         return new MapProject() { Id = name, Title = name, Sub = $"{directory} · {summary}" };
-    }
-
-    private MapSource Source(LoadedSolution solution, List<ModuleDraft> drafts)
-    {
-        var skipped = solution.SkippedProjects
-            .Select(it => repository.ToRelative(Path.GetDirectoryName(it.FilePath ?? "") ?? "") + "/")
-            .ToList();
-        var assigned = drafts.SelectMany(it => it.Group.Units).SelectMany(it => it.Files).ToHashSet();
-        var leftovers = repository.TrackedFiles()
-            .Where(it => Suffixes.Any(suffix => it.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)))
-            .Where(it => !assigned.Contains(it) && !skipped.Any(it.StartsWith))
-            .Order(StringComparer.Ordinal);
-        return new MapSource()
-        {
-            Root = ".",
-            Profile = "csharp",
-            Suffixes = Suffixes,
-            Exclude = skipped.Select(it => it + "*").Concat(leftovers).ToList()
-        };
     }
 
     private static string NotDrawn(List<ModuleDraft> drafts, List<string> hiddenPackages)

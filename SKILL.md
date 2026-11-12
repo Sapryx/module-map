@@ -27,14 +27,12 @@ Run the scripts from the repository root; `<skill>` below is this file's directo
 
 ## Code-only mode (C#)
 
-When the user asks for an automatic or code-only map of a C# solution, the analyzer in `<skill>/csharp` generates the whole map from the code, with no `docs/module-map.json` to maintain. It needs the .NET 10 SDK and a restored solution (`obj/project.assets.json`). Run from the repository root:
+When the user asks for an automatic or code-only map of a C# solution, the analyzer in `<skill>/csharp` generates the whole map from the code, with no `docs/module-map.json` to maintain, and writes nothing into the repository. It needs the .NET 10 SDK and a restored solution (`obj/project.assets.json`). From the repository root:
 
-```
-dotnet run --project <skill>/csharp -- <solution or project file> <scratchpad>/<repo>-module-map.json
-python <skill>/build.py <scratchpad>/<repo>-module-map.json <scratchpad>/<repo>-module-map.html
-```
+- `dotnet run --project <skill>/csharp -- <solution or project file>` maps the solution, serves the page on a local port and opens it in the browser, then remaps on every change to a source, markup or project file; the open page reloads itself. It runs until Ctrl+C, so start it in the background.
+- `dotnet run --project <skill>/csharp -- <solution or project file> --out <scratchpad>/<repo>-module-map.html` writes the page once, for publishing as in step 5 to a new artifact unless the user names one.
 
-Then publish the page as in step 5, to a new artifact unless the user names one; steps 1 to 4 do not apply. The analyzer loads the solution with Roslyn, skips test projects, and decides everything itself:
+Steps 1 to 4 do not apply. The analyzer loads the solution with Roslyn, skips test projects (a `Test` or `Tests` segment in the project name or folder) without loading them, and decides everything itself:
 
 - **Modules:** each view model (`*ViewModel`, `*Vm`) together with the views whose root `x:DataType` binds to it, or that are named after it with a `View`, `Window`, `Control`, `Page` or `Dialog` suffix; one module per namespace for everything else. A type left in a namespace that gave up views or view models joins a feature when that feature is the only one it is connected to.
 - **Edges** from the semantic model and from XAML elements and `x:DataType`s: `implements` for interfaces, `listens` for `+=`/`-=` on events, `wiring` from the module holding the entry point or a `CompositionRoot` type, `cycle` for mutual pairs.

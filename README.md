@@ -71,12 +71,13 @@ python ~/.claude/skills/module-map/build.py docs/module-map.json module-map.html
 
 ## Code-only mode for C#
 
-For a C# solution the whole map can come from the code, with no map file to maintain. A Roslyn-based analyzer loads the solution and decides modules, dependencies, packages, layout and coupling notes on its own: each view model forms a feature module with the views bound to it through `x:DataType`, and every other namespace becomes a module. Ask for an automatic map with `/module-map`, or run it yourself (needs the .NET 10 SDK and a restored solution):
+For a C# solution the whole map can come from the code, with no map file to maintain. A Roslyn-based analyzer loads the solution and decides modules, dependencies, packages, layout and coupling notes on its own: each view model forms a feature module with the views bound to it through `x:DataType`, and every other namespace becomes a module. Ask for an automatic map with `/module-map`, or run it yourself from the repository root (needs the .NET 10 SDK and a restored solution):
 
 ```bash
-dotnet run --project ~/.claude/skills/module-map/csharp -- MySolution.sln module-map.json
-python ~/.claude/skills/module-map/build.py module-map.json module-map.html
+dotnet run --project ~/.claude/skills/module-map/csharp -- MySolution.sln
 ```
+
+This opens a live preview in your browser and keeps it current: every change to a source, markup or project file remaps the solution and the page reloads itself, keeping its scroll position. Stop it with Ctrl+C. Nothing is written into the repository; add `--out map.html` to save the page to a file instead.
 
 The result is always current but less curated than a hand-kept map: modules follow namespaces, and the notes are computed (cycles, hubs, unreferenced modules, cross-project interfaces) rather than written.
 
