@@ -25,6 +25,22 @@ Run the scripts from the repository root; `<skill>` below is this file's directo
 
 5. **Publish** the built file with the Artifact tool to the map's `artifact` URL (read the artifact first when this conversation has not published it). With no `artifact`, publish a new one and write its URL into the map. Tell the user what changed on the map: modules added, removed or reshaped, new or removed cycles and boundary crossings, portability changes.
 
+## Code-only mode (C#)
+
+When the user asks for an automatic or code-only map of a C# solution, the analyzer in `<skill>/csharp` generates the whole map from the code, with no `docs/module-map.json` to maintain. It needs the .NET 10 SDK and a restored solution (`obj/project.assets.json`). Run from the repository root:
+
+```
+dotnet run --project <skill>/csharp -- <solution or project file> <scratchpad>/<repo>-module-map.json
+python <skill>/build.py <scratchpad>/<repo>-module-map.json <scratchpad>/<repo>-module-map.html
+```
+
+Then publish the page as in step 5, to a new artifact unless the user names one; steps 1 to 4 do not apply. The analyzer loads the solution with Roslyn, skips test projects, and decides everything itself:
+
+- **Modules:** each view model (`*ViewModel`, `*Vm`) together with the views whose root `x:DataType` binds to it, or that are named after it with a `View`, `Window`, `Control`, `Page` or `Dialog` suffix; one module per namespace for everything else. A type left in a namespace that gave up views or view models joins a feature when that feature is the only one it is connected to.
+- **Edges** from the semantic model and from XAML elements and `x:DataType`s: `implements` for interfaces, `listens` for `+=`/`-=` on events, `wiring` from the module holding the entry point or a `CompositionRoot` type, `cycle` for mutual pairs.
+- **Externals:** NuGet packages from `project.assets.json`, each transitive package credited to the direct package whose id is its longest dotted prefix, otherwise to the nearest one; native libraries from `DllImport`/`LibraryImport`. Modules and packages used by at least half the modules are left off and named in `notDrawn`.
+- **Kinds, portability, layout and notes:** cycles, hubs with six or more dependencies, unreferenced modules, and interfaces implemented across projects.
+
 ## Reference
 
 ### What a module is
@@ -50,7 +66,7 @@ Any other language goes without a profile: give `suffixes`, and the scan checks 
 - `artifact`: the published page's URL. `packageKind`: what an external package is called in this ecosystem (`NuGet package`, `crate`, `Maven artifact`, `library`); `package` by default.
 - `projects[]`: `id` (the module `project` value), `title`, `sub` (`path · summary`; narrow projects show only the summary). Frames get colors in list order.
 - `rows[]`: grid rows top to bottom; `lane` labels the row, `gapBefore` adds space (use it between projects stacked vertically).
-- `modules[]`: `id`, `name`, `kind` (`feature`, `service`, `adapter`, `utility`, `infra`, `model`), `project`, `ns` (namespace, package or module path), `col`, `row`, `portability`, `iface` (public interface; the part before the first comma shows on the box), `impl` (hidden implementation), `libs`, `note` (one or two sentences on what it does), `files` (glob patterns relative to `source.root`; `*` crosses folders).
+- `modules[]`: `id`, `name`, `kind` (`feature`, `ui`, `service`, `adapter`, `utility`, `infra`, `model`), `project`, `ns` (namespace, package or module path), `col`, `row`, `portability`, `iface` (public interface; the part before the first comma shows on the box), `impl` (hidden implementation), `libs`, `note` (one or two sentences on what it does), `files` (glob patterns relative to `source.root`; `*` crosses folders).
 - `externals[]`: `id` (prefix `x-`), `name`, `sub`, `kind` (`package` or `native`), `projects`, `note`. Leave the standard library and anything nearly every module uses (logging) off the map, and say so in `notDrawn`.
 - `edges[]`: `[from, to, type, via]`, where `type` defaults to `uses` and `via` names the types or members the dependency goes through:
   - `uses`: calls or holds the target;

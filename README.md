@@ -27,6 +27,7 @@ Other languages work without a profile: the scan checks coverage, and Claude fin
 
 - Claude Code (the CLI, desktop app or IDE extension)
 - Python 3.11 or later
+- For code-only mode: the .NET 10 SDK
 - Git; the mapped code must be in a Git repository
 
 ## Installation
@@ -67,6 +68,17 @@ python ~/.claude/skills/module-map/build.py docs/module-map.json module-map.html
 ```
 
 `scan.py` prints coverage, dependencies found in code (`[in map]` or `[NEW]`), map edges with no reference in code, and external libraries per module. `build.py` validates the map and writes a standalone HTML page.
+
+## Code-only mode for C#
+
+For a C# solution the whole map can come from the code, with no map file to maintain. A Roslyn-based analyzer loads the solution and decides modules, dependencies, packages, layout and coupling notes on its own: each view model forms a feature module with the views bound to it through `x:DataType`, and every other namespace becomes a module. Ask for an automatic map with `/module-map`, or run it yourself (needs the .NET 10 SDK and a restored solution):
+
+```bash
+dotnet run --project ~/.claude/skills/module-map/csharp -- MySolution.sln module-map.json
+python ~/.claude/skills/module-map/build.py module-map.json module-map.html
+```
+
+The result is always current but less curated than a hand-kept map: modules follow namespaces, and the notes are computed (cycles, hubs, unreferenced modules, cross-project interfaces) rather than written.
 
 ## Map format
 

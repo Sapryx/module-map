@@ -6,7 +6,7 @@ from pathlib import Path
 from maplib import assign_files, load_map, repo_files, repo_root, source_files
 from profiles import PROFILES
 
-KINDS = {"feature", "service", "adapter", "utility", "infra", "model"}
+KINDS = {"feature", "service", "adapter", "utility", "infra", "model", "ui"}
 EDGE_TYPES = {"uses", "listens", "implements", "cycle", "wiring", "external"}
 NOTE_LEVELS = {"bad", "warn", "ok"}
 MODULE_FIELDS = [
